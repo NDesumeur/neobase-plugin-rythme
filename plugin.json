@@ -1,9 +1,9 @@
 {
   "id": "neobase.rythme",
   "name": "Rythme",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "NDesumeur",
-  "description": "100 morceaux chiptune composés par le jeu, ou ta propre musique : frappe les notes sur 4 voies, en rythme.",
+  "description": "200 morceaux chiptune composés par le jeu, ou ta propre musique : frappe les notes sur 4 voies, en rythme.",
   "icon": "icon.png",
   "entry": "index.js",
   "view": "rythme",
