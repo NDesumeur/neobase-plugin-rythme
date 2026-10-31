@@ -2,11 +2,31 @@
 // Ses données sont dans le dossier du plugin, que NeoBase sauvegarde (synchro cloud et sauvegardes) ; à la première ouverture elle reprend ce que tu avais dans NeoBase.
 // Elle demande l'accès complet pour utiliser les outils d'interface de NeoBase. NeoBase ne l'ouvre que si elle est signée.
 const HTML = "<div class=\"appWrap wide\">\n      <div class=\"agHead\"><span class=\"label\">Rythme</span><span class=\"hint\">Touches D F J K (ou les flèches) · espace : jouer · P : pause</span></div>\n      <div class=\"rhMain\"><div class=\"gameBox tall\"><canvas id=\"rhCanvas\" width=\"240\" height=\"320\"></canvas></div>\n        <div class=\"rhSide\"><div class=\"rhTabs\"><button class=\"tab px on\" id=\"rhTabSongs\">CHANSONS</button><button class=\"tab px\" id=\"rhTabMine\">MES MUSIQUES</button></div><div class=\"sysCard px rhImport\" id=\"rhImport\" style=\"display:none\"><div class=\"row\"><button class=\"btn main px\" id=\"rhFileBtn\">IMPORTER UN FICHIER AUDIO</button><input type=\"file\" id=\"rhFile\" accept=\"audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac,.webm\" hidden></div><div class=\"row\"><select class=\"f gSel\" id=\"rhMuList\"></select><button class=\"btn px\" id=\"rhMuBtn\">CRÉER LE NIVEAU</button></div><span class=\"hint\" id=\"rhImpMsg\">Depuis un fichier ou une musique de NeoMusic : 4 niveaux sont créés à partir de son tempo et de ses temps forts.</span></div><div id=\"rhSongs\"></div><div class=\"sysCard px rhOpts\"><label>Volume <input type=\"range\" id=\"rhVol\" min=\"0\" max=\"100\" value=\"70\"></label><label>Vitesse des notes <select class=\"f gSel\" id=\"rhSpeed\"><option value=\"1.5\">Lente</option><option value=\"2\" selected>Normale</option><option value=\"2.6\">Rapide</option><option value=\"3.2\">Très rapide</option></select></label><label>Décalage audio <select class=\"f gSel\" id=\"rhOffset\"><option value=\"-120\">-120 ms</option><option value=\"-100\">-100 ms</option><option value=\"-80\">-80 ms</option><option value=\"-60\">-60 ms</option><option value=\"-40\">-40 ms</option><option value=\"-20\">-20 ms</option><option value=\"0\" selected>0 ms</option><option value=\"20\">+20 ms</option><option value=\"40\">+40 ms</option><option value=\"60\">+60 ms</option><option value=\"80\">+80 ms</option><option value=\"100\">+100 ms</option><option value=\"120\">+120 ms</option></select></label></div></div></div>\n      <div class=\"hint\">Appuie quand la note touche la ligne, maintiens les notes longues. Si les notes te semblent décalées avec la musique, règle le décalage audio.</div>\n    </div>";
+/*CSS-MOVED*/ const CSS = `.gameBox{display:grid;place-items:center;padding:10px;background:#05010b;box-shadow:0 0 0 3px var(--line2)}
+.gameBox canvas{width:min(100%,1152px);aspect-ratio:384/144;image-rendering:pixelated;cursor:var(--cp,pointer)}
+.gameBox.tall canvas{width:auto;height:min(720px,72vh);aspect-ratio:240/320}
+.gSel{width:auto;font-size:14px;padding:6px 10px;margin-right:8px}
+.rhMain{display:flex;gap:24px;align-items:flex-start}
+.rhSide{display:flex;flex-direction:column;gap:16px;flex:1;min-width:280px}
+#rhSongs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;max-height:560px;overflow-y:auto;padding:4px 8px 4px 4px}
+.rhTabs{display:flex;gap:6px}
+.rhImport{gap:12px}
+.rhImport #rhMuList{flex:1;min-width:0;max-width:100%}
+.rhSong{position:relative}
+.rhDel{all:unset;position:absolute;top:8px;right:10px;cursor:var(--cp,pointer);color:var(--muted);font-size:16px}
+.rhDel:hover{color:var(--red)}
+.rhSong.on{--c:var(--pink)}
+.rhSong .btn{height:34px;font-size:14px;padding:0 10px}
+.rhOpts{flex-direction:row;flex-wrap:wrap;gap:18px;align-items:center}
+.rhOpts label{display:flex;align-items:center;gap:10px;color:var(--lilac)}
+.rhOpts input[type=range]{accent-color:var(--magenta)}
+`;  // le style de ce plugin (il utilise les variables du thème de NeoBase)
 export default async function (ctx) {
   const view = ctx.view;
   if (!ctx.host) { view.textContent = "Ce plugin doit être approuvé par NeoBase pour s'ouvrir."; return; }
   const host = ctx.host, { el, toast, sfx, ask, newTab, pixIcon, PIX, WX } = host;
   const folder = ctx.folder, legacy = ctx.legacy || {};
+  ctx.host.addStyle(CSS);
   view.innerHTML = HTML;
   const $ = id => id === "rhythmApp" ? view : (view.querySelector('#' + id) || document.getElementById(id));  // les identifiants de ta vue d'abord, puis ceux de la page (fenêtres, menus)
   const doc = async n => { try { return await folder.read(n); } catch { return null; } };
