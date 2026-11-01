@@ -23,6 +23,14 @@ const HTML = "<div class=\"appWrap wide\">\n      <div class=\"agHead\"><span cl
 `;  // le style de ce plugin (il utilise les variables du thème de NeoBase)
 export default async function (ctx) {
   const view = ctx.view;
+  // le côté système de NeoMusic (yt-dlp, fichiers, raccourcis globaux) vit dans le main.js du plugin : « neo.musicXxx » y est redirigé
+  const MU_ID = 'neobase.music', MU_EV = { onMusicHotkey: 'music:hotkey', onMusicProgress: 'music:progress' };
+  const neo = new Proxy(ctx.neo, { get: (n, k) => {
+    if (typeof k !== 'string') return n[k];
+    if (MU_EV[k]) return cb => n.onPluginMain(e => { if (e.id === MU_ID && e.name === MU_EV[k]) cb(e.data); });
+    const m = /^music([A-Z]\w*)$/.exec(k);
+    return m ? (...a) => n.pluginMain(MU_ID, 'music:' + (m[1] === 'ImportMuPlayer' ? 'pickMuPlayer' : m[1][0].toLowerCase() + m[1].slice(1)), ...a) : n[k];
+  } });
   if (!ctx.host) { view.textContent = "Ce plugin doit être approuvé par NeoBase pour s'ouvrir."; return; }
   const host = ctx.host, { el, toast, sfx, ask, newTab, pixIcon, PIX, WX } = host;
   const folder = ctx.folder, legacy = ctx.legacy || {};
@@ -306,7 +314,7 @@ const rhAnalysed = new Map();  // id -> {a, buffer}, for this session (recompute
 async function rhLoadImport(imp) {
   if (rhAnalysed.has(imp.id)) return rhAnalysed.get(imp.id);
   const has = imp.file && (await neo.musicExists([imp.file]))[imp.file];
-  const src = has ? 'neomusic://file/' + encodeURIComponent(imp.file) : imp.url ? 'neomusic://stream/?u=' + encodeURIComponent(imp.url) : '';
+  const src = has ? 'neoplugin://neobase.music/file/' + encodeURIComponent(imp.file) : imp.url ? 'neoplugin://neobase.music/stream/?u=' + encodeURIComponent(imp.url) : '';
   if (!src) throw new Error('le fichier de cette musique n\'est pas sur ce PC');
   rhAudio();
   const buffer = await rhCtx.decodeAudioData(await (await fetch(src)).arrayBuffer()), a = rhAnalyse(buffer), r = {a, buffer};
