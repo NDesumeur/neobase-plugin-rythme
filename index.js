@@ -25,7 +25,7 @@ export default async function (ctx) {
   const view = ctx.view;
   // le côté système de NeoMusic (yt-dlp, fichiers, raccourcis globaux) vit dans le main.js du plugin : « neo.musicXxx » y est redirigé
   const MU_ID = 'neobase.music', MU_EV = { onMusicHotkey: 'music:hotkey', onMusicProgress: 'music:progress' };
-  const neo = new Proxy(ctx.neo, { get: (n, k) => {
+  const neo = new Proxy({}, { get: (_, k) => { const n = ctx.neo;  // cible vide : contextBridge fige les propriétés de neo
     if (typeof k !== 'string') return n[k];
     if (MU_EV[k]) return cb => n.onPluginMain(e => { if (e.id === MU_ID && e.name === MU_EV[k]) cb(e.data); });
     const m = /^music([A-Z]\w*)$/.exec(k);
