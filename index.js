@@ -345,8 +345,8 @@ function rhAudio() {
   if (!rhOut) { rhOut = rhCtx.createGain(); rhOut.connect(rhCtx.destination); }
   rhOut.gain.value = +$('rhVol').value / 100 * .6;
 }
-function rhSound(e, when) {
-  const c = rhCtx, g = c.createGain(); g.connect(rhOut);
+function rhSound(e, when, c = rhCtx, out = rhOut) {
+  const g = c.createGain(); g.connect(out);
   const env = (a, d, v) => { g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(v, when + a); g.gain.exponentialRampToValueAtTime(.0001, when + d); };
   if (e.k === 'kick') { const o = c.createOscillator(); o.frequency.setValueAtTime(150, when); o.frequency.exponentialRampToValueAtTime(40, when + .12); env(.002, .22, .9 * e.v); o.connect(g); o.start(when); o.stop(when + .25); }
   else if (e.k === 'snare' || e.k === 'hat') {
@@ -359,15 +359,49 @@ function rhSound(e, when) {
     o.connect(g); o.start(when); o.stop(when + e.d + .06);
   }
 }
+// le morceau est « cuit » d'avance en un seul son (hors temps réel) : plus aucun instrument à créer pendant la partie, donc plus de saccades
+const rhRendered = new Map();
+async function rhRenderSong(i, c) {  // synthèse faite à la main dans un tableau (le moteur audio hors temps réel mettait plus de 20 s)
+  if (rhRendered.has(i)) return rhRendered.get(i);
+  toast('Préparation du niveau…'); await new Promise(r => setTimeout(r, 40));
+  rhAudio();
+  const R = 44100, N = Math.ceil((c.len + 1.5) * R), out = new Float32Array(N), nz = rhNoise.getChannelData(0), TAU = 2 * Math.PI;
+  const biquad = (type, f) => { const w = TAU * f / R, al = Math.sin(w) / 2, cw = Math.cos(w), a0 = 1 + al, b = type === 'hp' ? [(1 + cw) / 2, -(1 + cw), (1 + cw) / 2] : [al, 0, -al]; return {b0: b[0] / a0, b1: b[1] / a0, b2: b[2] / a0, a1: -2 * cw / a0, a2: (1 - al) / a0}; };
+  const HP = biquad('hp', 7000), BP = biquad('bp', 1800), expo = (a, t, T) => a * Math.pow(.0001 / a, t / T);
+  for (const e of c.events) {
+    const s0 = Math.floor(e.t * R); if (s0 >= N) continue;
+    if (e.k === 'kick') {
+      let ph = 0; const L = Math.min(N - s0, Math.floor(.25 * R)), v = .9 * e.v;
+      for (let n = 0; n < L; n++) { const t = n / R, f = 150 * Math.pow(40 / 150, Math.min(t, .12) / .12); ph += TAU * f / R; out[s0 + n] += Math.sin(ph) * (t < .002 ? v * t / .002 : expo(v, t - .002, .218)); }
+    } else if (e.k === 'snare' || e.k === 'hat') {
+      const hat = e.k === 'hat', q = hat ? HP : BP, d = hat ? .045 : .17, v = (hat ? .25 : .55) * e.v, L = Math.min(N - s0, Math.floor((d + .02) * R));
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0, o = Math.floor(Math.random() * nz.length * .5);
+      for (let n = 0; n < L; n++) { const t = n / R, x = nz[(o + n) % nz.length], y = q.b0 * x + q.b1 * x1 + q.b2 * x2 - q.a1 * y1 - q.a2 * y2; x2 = x1; x1 = x; y2 = y1; y1 = y; out[s0 + n] += y * (t < .001 ? v * t / .001 : t < d ? expo(v, t - .001, d - .001) : 0); }
+    } else {
+      const lead = e.k === 'lead', w = lead ? e.w || 'square' : 'triangle', v1 = e.v * (lead ? .55 : 1), v2 = e.v * (lead ? .4 : .7), tm = Math.min(e.d, .08), T = e.d + .04, L = Math.min(N - s0, Math.floor((e.d + .06) * R)), inc = e.f / R;
+      let ph = 0;
+      for (let n = 0; n < L; n++) {
+        const t = n / R; ph += inc; if (ph >= 1) ph -= 1;
+        const s = w === 'square' ? (ph < .5 ? 1 : -1) : w === 'sawtooth' ? 2 * ph - 1 : w === 'sine' ? Math.sin(TAU * ph) : 1 - 4 * Math.abs(ph - .5);
+        out[s0 + n] += s * (t < .006 ? v1 * t / .006 : t < tm ? v1 : t < T ? expo(v2, t - tm, T - tm) : 0);
+      }
+    }
+  }
+  for (let n = 0; n < N; n++) out[n] = Math.max(-1, Math.min(1, out[n] * .6));
+  const buf = rhCtx.createBuffer(1, N, R); buf.copyToChannel(out, 0); rhRendered.set(i, buf); return buf;
+}
+let rhTok = 0;
 // i: index of a song of the game, or the id of an imported music
 async function rhSelect(i, diff) {
-  let info, c, notes;
-  if (typeof i === 'number') { const song = RH_SONGS[i] || RH_SONGS[0]; c = rhCompose(song); notes = rhChart(c, diff); info = {name: song.name, bpm: song.bpm, key: 'rh' + RH_SONGS.indexOf(song) + diff}; }
+  let info, c, notes; const tok = ++rhTok;
+  if (typeof i === 'number') { const song = RH_SONGS[i] || RH_SONGS[0]; c = rhCompose(song); notes = rhChart(c, diff); info = {name: song.name, bpm: song.bpm, key: 'rh' + RH_SONGS.indexOf(song) + diff};
+    const buffer = await rhRenderSong(RH_SONGS.indexOf(song), c); c = {events: [], lead: [], len: c.len, step: c.step, buffer}; }
   else {
     const imp = rhImports().find(x => x.id === i); if (!imp) return rhSelect(0, diff);
     const {a, buffer} = await rhLoadImport(imp);
     c = {events: [], lead: [], len: a.len, step: a.beat / 4, buffer}; notes = rhChartImport(a, diff); info = {name: imp.name, bpm: a.bpm, key: 'rhx' + imp.id + diff};
   }
+  if (tok !== rhTok) return;  // un autre niveau a été choisi entre-temps
   try { rh?.src?.stop(); } catch {}
   rh = rh || {raf: 0};
   Object.assign(rh, {g: $('rhCanvas').getContext('2d'), mode: 'ready', tick: 0, song: i, diff, c, info, notes, src: null, ev: 0, t0: 0, score: 0, combo: 0, maxCombo: 0, counts: {PARFAIT: 0, BIEN: 0, OK: 0, RATÉ: 0}, judge: null, flash: [0, 0, 0, 0], down: [false, false, false, false], sparks: [], done: false});
