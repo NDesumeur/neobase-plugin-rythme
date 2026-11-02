@@ -310,8 +310,8 @@ function rhChartImport(a, diff) {  // diff : facile…expert, ou « S5 » = nive
   picked.forEach((c, i) => {
     let lane = c.band;  // low sounds on the left, high ones on the right
     if (lane === last && c.t - lastT < .3) lane = (lane + (i % 2 ? 1 : 3)) % 4;
-    const next = picked[i + 1]?.t ?? a.len, room = next - c.t, f2 = Math.round(c.f + a.fps * a.beat), held = a.rms[f2] >= a.rms[c.f] * .6;
-    const len = D !== 'expert' && room >= a.beat * (D === 'facile' ? 2 : 1.5) && held ? Math.min(room - a.beat * .3, a.beat * 3) * .9 : 0;
+    const next = picked[i + 1]?.t ?? a.len, room = next - c.t, f2 = Math.round(c.f + a.fps * a.beat), held = a.rms[f2] >= a.rms[c.f] * .4;
+    const need = D === 'facile' ? 1.4 : 1.1, len = (D !== 'expert' || room >= a.beat * 2) && room >= a.beat * need && (held || room >= a.beat * 1.8) ? Math.min(room - a.beat * .3, a.beat * 3) * .9 : 0;
     notes.push({t: c.t, lane, len});
     if (D === 'expert' && c.s >= strong) notes.push({t: c.t, lane: (lane + 2) % 4, len: 0});
     last = lane; lastT = c.t;
