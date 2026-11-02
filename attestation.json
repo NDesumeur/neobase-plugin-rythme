@@ -1,9 +1,0 @@
-{
-  "pluginId": "neobase.rythme",
-  "repo": "NDesumeur/neobase-plugin-rythme",
-  "version": "1.3.1",
-  "sha256": "96ccee5d46dc4bb80848cdcfebeb99ef1bc3f157294dabbde4c35d6223372ec8",
-  "approvedAt": "2026-11-01T00:42:49.668Z",
-  "neobase": ">=4.1.0",
-  "signature": "4N+U2ryfGr05X/zdmBysrKGIHV0MerKPEDaE5cs1mg+m/oftOMd7S0iv0ixFCq0kzHesELEGBr2ZzqbJ95Y5BA=="
-}
