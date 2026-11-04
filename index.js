@@ -70,8 +70,8 @@ const PXK = (() => {
   const COMP = { é: 'ea', è: 'eg', ê: 'ec', ë: 'ed', á: 'aa', à: 'ag', â: 'ac', ä: 'ad', í: 'ıa', ì: 'ıg', î: 'ıc', ï: 'ıd', ó: 'oa', ò: 'og', ô: 'oc', ö: 'od',
     ú: 'ua', ù: 'ug', û: 'uc', ü: 'ud', ÿ: 'yd', ñ: 'nt', ç: 'cz', É: 'Ea', È: 'Eg', Ê: 'Ec', Ë: 'Ed', Á: 'Aa', À: 'Ag', Â: 'Ac', Ä: 'Ad', Í: 'Ia', Î: 'Ic', Ï: 'Id',
     Ó: 'Oa', Ô: 'Oc', Ö: 'Od', Ú: 'Ua', Ù: 'Ug', Û: 'Uc', Ü: 'Ud', Ñ: 'Nt', Ç: 'Cz' };
-  const SUB = { 'œ': 'oe', 'Œ': 'OE', '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-', ' ': ' ', ' ': ' ', '•': '·', '✓': 'v' };
-  const H = 11, glyphs = new Map();
+  const SUB = { 'œ': 'oe', 'Œ': 'OE', '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-', ' ': ' ', ' ': ' ', '•': '·', '✓': 'v', 'ᐸ': '<', 'ᐳ': '>', '＜': '<', '＞': '>', '｜': '|', '／': '/', '！': '!', '？': '?', '（': '(', '）': ')', '：': ':', '　': ' ' };  // ᐸ ᐳ : les < > des titres YouTube
+  const H = 11, glyphs = new Map(); let raster;
   function glyph(ch) {
     let g = glyphs.get(ch); if (g) return g;
     const px = [], add = (rows, ox, oy) => rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === '#') px.push([ox + x, oy + y]); });
@@ -79,7 +79,14 @@ const PXK = (() => {
     if (src) {
       const rows = src.split(' '); w = Math.max(...rows.map(r => r.length)); add(rows, 0, 2);
       if (c) { const a = ACC[c[1]]; add(a, Math.floor((w - a[0].length) / 2), c[1] === 'z' ? 9 : /[A-Z]/.test(c[0]) ? 0 : 1); }
-    } else if (ch !== ' ') { w = 5; add(['#####', '#...#', '#...#', '#...#', '#...#', '#...#', '#####'], 0, 2); }  // une lettre inconnue : une petite case
+    } else if (ch !== ' ') {  // japonais, emoji… : la lettre du système, réduite à des pixels nets (sans lissage) sur la même hauteur que la police
+      const q = (raster ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true })), RW = 16;
+      q.canvas.width = RW; q.canvas.height = H; q.font = '11px "MS Gothic", "Yu Gothic UI", Meiryo, "Segoe UI Symbol", sans-serif'; q.fillStyle = '#000'; q.fillText(ch, 0, 10);
+      const d = q.getImageData(0, 0, RW, H).data; let mx = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < RW; x++) if (d[(y * RW + x) * 4 + 3] > 110) { px.push([x, y]); mx = Math.max(mx, x + 1); }
+      w = mx || 3;
+      if (!px.length) { w = 5; add(['#####', '#...#', '#...#', '#...#', '#...#', '#...#', '#####'], 0, 2); }  // vraiment inconnue : une petite case
+    }
     g = { w, px }; glyphs.set(ch, g); return g;
   }
   function layout(text) {
@@ -128,10 +135,6 @@ const PX_ICONS = {
   full: ['www...www', 'w.......w', 'w.......w', '.........', '....a....', '.........', 'w.......w', 'w.......w', 'www...www'],
   note: ['...aaaaaa', '...aaaaaa', '...a....a', '...a....a', '...a....a', '.aaa..aaa', 'aaaa.aaaa', 'aaaa.aaaa', '.aa...aa.'],
   star: ['....g....', '....g....', '...ggg...', 'ggggwgggg', '.ggwwwgg.', '..ggggg..', '..oo.oo..', '.oo...oo.', '.o.....o.'],
-  leaf: ['.....nnnn', '...nnnnnn', '..nnnnnNn', '.nnnnnNnn', '.nnnnNnnn', '.nnnNnnn.', '..nNnn...', '.N.......', 'N........'],
-  bolt: ['....ggo..', '...ggo...', '..ggo....', '.ggggggo.', '....ggo..', '...ggo...', '..go.....', '.go......', '.........'],
-  flame: ['....r....', '...rr....', '..rrr..r.', '..rrorrr.', '.rrooorr.', '.rroggorr', '.rroggor.', '..rooor..', '...rrr...'],
-  skull: ['..wwwww..', '.wwwwwww.', 'wwwwwwwww', 'wkkwwwkkw', 'wkkwwwkkw', 'wwwwkwwww', '.wwwwwww.', '..wkwkw..', '..wwwww..'],
   crown: ['g...g...g', 'gg.ggg.gg', 'ggggggggg', 'grgggggrg', 'ggggggggg', 'ooooooooo'],
   folder: ['oooo.....', 'oggoooooo', 'ggggggggg', 'ggggggggg', 'ggggggggg', 'ggggggggg', 'ooooooooo'],
   vol: ['....w....', '...ww..b.', 'wwwww.b.b', 'wwwww.b.b', 'wwwww.b.b', 'wwwww.b.b', '...ww..b.', '....w....'],
@@ -305,7 +308,7 @@ export default async function (ctx) {
     orange: '#ff8c3a', red: '#ff4a5e', green: '#5ef08a', green2: '#239a4f', bg: '#0d0520', bgDot: '#2a1a52', bgDot2: '#1a0e38', spark: '#5a2d8a', spark2: '#ff8fe6',
     tile: ['x.......:.......', '................', '................', '..........+.....', '................', '................', '................', '................',
       ':.......x.......', '................', '...+............', '................', '................', '..............*.', '................', '................'] }, emblem: ['kkkkkkkkkkkkkkkk', 'kaaaaaaaaaaaaaak', 'kawwwwwwwwwwwwak', 'kawkkkwwwwkkkwak', 'kawk.kwbbwk.kwak', 'kawkkkwwwwkkkwak', 'kawwwwwwwwwwwwak', 'kaaaaaaaaaaaaaak', 'kaaakkkkkkkkaaak', 'kaakmmmmmmmmkaak', 'kkkkkkkkkkkkkkkk'],
-    icons: [[/^Facile/, 'leaf'], [/^Normal/, 'bolt'], [/^Difficile/, 'flame'], [/^Expert/, 'skull'], [/^JOUER/, 'play'], [/^PLEIN/, 'full'], [/^IMPORTER/, 'folder'], [/^CRÉER/, 'plus'],
+    icons: [[/^PLEIN/, 'full'], [/^IMPORTER/, 'folder'], [/^CRÉER/, 'plus'],
     [/^CHANSONS/, 'note'], [/^MES MUSIQUES/, 'folder'], [/^Volume/, 'vol'], [/^Décalage/, 'clock'], [/^Curseur/, 'cursor'], [/^Difficulté/, 'star']] });
   const $ = id => id === "rhythmApp" ? view : (view.querySelector('#' + id) || document.getElementById(id));  // les identifiants de ta vue d'abord, puis ceux de la page (fenêtres, menus)
   const doc = async n => { try { return await folder.read(n); } catch { return null; } };
@@ -679,7 +682,17 @@ async function rhSelect(i, diff) {
 }
 let rhOffMs = 0;
 const rhLatency = () => (rhCtx?.outputLatency || 0) + (rhCtx?.baseLatency || 0) + rhOffMs / 1000;
-const rhNow = () => rhCtx.currentTime - rh.t0 - rhLatency();
+// l'horloge audio n'avance que par paquets (~10 ms sous Windows) : sur un écran à 144 ou 165 Hz, elle reste figée une image sur trois
+// et les notes avancent par à-coups. On la prolonge avec l'horloge de l'écran entre deux paquets (jamais de plus de 50 ms, jamais en arrière).
+const rhCk = {ct: -1, pt: 0, out: 0};
+function rhTime() {
+  const t = rhCtx.currentTime, p = performance.now();
+  if (t !== rhCk.ct) { rhCk.ct = t; rhCk.pt = p; }
+  const v = rhCtx.state === 'running' ? t + Math.min(.05, (p - rhCk.pt) / 1000) : t;
+  rhCk.out = v < rhCk.out && rhCk.out - v < .06 ? rhCk.out : v;  // un paquet arrivé un peu tôt ne fait pas reculer les notes
+  return rhCk.out;
+}
+const rhNow = () => rhTime() - rh.t0 - rhLatency();
 function rhBegin() {
   rhAudio(); rhCtx.resume(); rh.t0 = rhCtx.currentTime + 2; rh.ev = 0; rh.mode = 'play';
   if (rh.c.buffer) { try { rh.src?.stop(); } catch {} rh.src = rhCtx.createBufferSource(); rh.src.buffer = rh.c.buffer; rh.src.connect(rhOut); rh.src.start(rh.t0); }  // your own music, in time with the notes
@@ -808,8 +821,8 @@ function rhList() {
     const c = el('div', 'sysCard px rhSong' + (rh?.song === imp.id ? ' on' : '')), x = el('button', 'rhDel', '×');
     x.title = 'Retirer ce niveau (la musique reste dans NeoMusic)';
     x.onclick = () => { games.rhythmImports = list.filter(o => o !== imp); rhAnalysed.delete(imp.id); saveGames(); rhList(); };
-    c.append(x, el('b', '', imp.name), el('span', 'hint', (imp.bpm ? imp.bpm + ' BPM · ' + clock(imp.len || 0) : 'pas encore analysée') + (imp.url ? ' · YouTube' : ' · fichier'))),
-      rhDiffRow('rhx' + imp.id, rh?.song === imp.id, d => { $('rhImpMsg').textContent = 'Préparation du niveau…'; rhSelect(imp.id, d).then(() => $('rhImpMsg').textContent = '', e => $('rhImpMsg').textContent = 'Impossible : ' + e.message); }, imp);
+    c.append(x, el('b', '', imp.name), el('span', 'hint', (imp.bpm ? imp.bpm + ' BPM · ' + clock(imp.len || 0) : 'pas encore analysée') + (imp.url ? ' · YouTube' : ' · fichier')),
+      rhDiffRow('rhx' + imp.id, rh?.song === imp.id, d => { $('rhImpMsg').textContent = 'Préparation du niveau…'; rhSelect(imp.id, d).then(() => $('rhImpMsg').textContent = '', e => $('rhImpMsg').textContent = 'Impossible : ' + e.message); }, imp));
     return c;
   }) : [el('span', 'hint', 'Importe un fichier audio, ou choisis une musique de NeoMusic : le jeu trouve son tempo et ses temps forts et en fait 4 niveaux.')]));
 }
