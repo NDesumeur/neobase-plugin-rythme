@@ -1,6 +1,6 @@
 // Rythme : ton appli d'origine (HTML et code inchangés), livrée en plugin.
-// Ses données sont dans le dossier du plugin, que NeoBase sauvegarde (synchro cloud et sauvegardes) ; à la première ouverture elle reprend ce que tu avais dans NeoBase.
-// Elle tourne dans le bac à sable de NeoBase, avec ses outils d'interface (ctx.host) et seulement les autorisations de son plugin.json.
+// Ses données sont dans le dossier du plugin, que NeoDex sauvegarde (synchro cloud et sauvegardes) ; à la première ouverture elle reprend ce que tu avais dans NeoDex.
+// Elle tourne dans le bac à sable de NeoDex, avec ses outils d'interface (ctx.host) et seulement les autorisations de son plugin.json.
 const HTML = "<div class=\"appWrap wide\">\n      <div class=\"agHead\"><span class=\"label\">Rythme</span><span class=\"hint\">Touches D F J K (ou les flèches) · espace : jouer · P : pause</span></div>\n      <div class=\"rhMain\"><div class=\"gameBox tall\"><canvas id=\"rhCanvas\" width=\"240\" height=\"320\"></canvas><button class=\"btn px rhFs\" id=\"rhFs\">PLEIN ÉCRAN</button></div>\n        <div class=\"rhSide\"><div class=\"rhTabs\"><button class=\"tab px on\" id=\"rhTabSongs\">CHANSONS</button><button class=\"tab px\" id=\"rhTabMine\">MES MUSIQUES</button></div><div class=\"sysCard px rhImport\" id=\"rhImport\" style=\"display:none\"><div class=\"row\"><button class=\"btn main px\" id=\"rhFileBtn\">IMPORTER UN FICHIER AUDIO</button><input type=\"file\" id=\"rhFile\" accept=\"audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac,.webm\" hidden></div><div class=\"row\"><select class=\"f gSel\" id=\"rhMuList\"></select><button class=\"btn px\" id=\"rhMuBtn\">CRÉER LE NIVEAU</button></div><div class=\"row\"><label>Difficulté du niveau <select class=\"f gSel\" id=\"rhStars\"><option value=\"1\">★</option><option value=\"2\">★★</option><option value=\"3\" selected>★★★</option><option value=\"4\">★★★★</option><option value=\"5\">★★★★★</option><option value=\"6\">★★★★★★</option><option value=\"7\">★★★★★★★</option><option value=\"8\">★★★★★★★★</option><option value=\"9\">★★★★★★★★★</option><option value=\"10\">★★★★★★★★★★</option></select></label></div><span class=\"hint\" id=\"rhImpMsg\">Depuis un fichier ou une musique de NeoMusic : 4 niveaux sont créés à partir de son tempo et de ses temps forts.</span></div><div id=\"rhSongs\"></div><div class=\"sysCard px rhOpts\"><label>Volume <input type=\"range\" id=\"rhVol\" min=\"0\" max=\"100\" value=\"70\"></label><label>Décalage audio <select class=\"f gSel\" id=\"rhOffset\"><option value=\"-120\">-120 ms</option><option value=\"-100\">-100 ms</option><option value=\"-80\">-80 ms</option><option value=\"-60\">-60 ms</option><option value=\"-40\">-40 ms</option><option value=\"-20\">-20 ms</option><option value=\"0\" selected>0 ms</option><option value=\"20\">+20 ms</option><option value=\"40\">+40 ms</option><option value=\"60\">+60 ms</option><option value=\"80\">+80 ms</option><option value=\"100\">+100 ms</option><option value=\"120\">+120 ms</option></select></label></div></div></div>\n      <div class=\"hint\">Appuie quand la note touche la ligne, maintiens les notes longues. Si les notes te semblent décalées avec la musique, règle le décalage audio.</div>\n    </div>";
 /*CSS-MOVED*/ const CSS = `.gameBox{position:relative}
 .rhFs{position:absolute;top:14px;right:14px;opacity:.85}
@@ -25,18 +25,18 @@ const HTML = "<div class=\"appWrap wide\">\n      <div class=\"agHead\"><span cl
 .rhOpts{flex-direction:row;flex-wrap:wrap;gap:18px;align-items:center}
 .rhOpts label{display:flex;align-items:center;gap:10px;color:var(--lilac)}
 .rhOpts input[type=range]{accent-color:var(--magenta)}
-`;  // le style de ce plugin (il utilise les variables du thème de NeoBase)
+`;  // le style de ce plugin (il utilise les variables du thème de NeoDex)
 export default async function (ctx) {
   const view = ctx.view;
   // le côté système de NeoMusic (yt-dlp, fichiers, raccourcis globaux) vit dans le main.js du plugin : « neo.musicXxx » y est redirigé
-  const MU_ID = 'neobase.music', MU_EV = { onMusicHotkey: 'music:hotkey', onMusicProgress: 'music:progress' };
+  const MU_ID = 'neodex.music', MU_EV = { onMusicHotkey: 'music:hotkey', onMusicProgress: 'music:progress' };
   const neo = new Proxy({}, { get: (_, k) => { const n = ctx.neo;  // cible vide : contextBridge fige les propriétés de neo
     if (typeof k !== 'string') return n[k];
     if (MU_EV[k]) return cb => n.onPluginMain(e => { if (e.id === MU_ID && e.name === MU_EV[k]) cb(e.data); });
     const m = /^music([A-Z]\w*)$/.exec(k);
     return m ? (...a) => n.pluginMain(MU_ID, 'music:' + (m[1] === 'ImportMuPlayer' ? 'pickMuPlayer' : m[1][0].toLowerCase() + m[1].slice(1)), ...a) : n[k];
   } });
-  if (!ctx.host) { view.textContent = "Ce plugin doit être approuvé par NeoBase pour s'ouvrir."; return; }
+  if (!ctx.host) { view.textContent = "Ce plugin doit être approuvé par NeoDex pour s'ouvrir."; return; }
   const host = ctx.host, { el, toast, sfx, ask, newTab, pixIcon, PIX, WX } = host;
   const folder = ctx.folder, legacy = ctx.legacy || {};
   ctx.host.addStyle(CSS);
@@ -323,7 +323,7 @@ const rhAnalysed = new Map();  // id -> {a, buffer}, for this session (recompute
 async function rhLoadImport(imp) {
   if (rhAnalysed.has(imp.id)) return rhAnalysed.get(imp.id);
   const has = imp.file && (await neo.musicExists([imp.file]))[imp.file];
-  const src = has ? 'neoplugin://neobase.music/file/' + encodeURIComponent(imp.file) : imp.url ? 'neoplugin://neobase.music/stream/?u=' + encodeURIComponent(imp.url) : '';
+  const src = has ? 'neoplugin://neodex.music/file/' + encodeURIComponent(imp.file) : imp.url ? 'neoplugin://neodex.music/stream/?u=' + encodeURIComponent(imp.url) : '';
   if (!src) throw new Error('le fichier de cette musique n\'est pas sur ce PC');
   rhAudio(); toast('Analyse de la musique…');
   const buffer = await rhCtx.decodeAudioData(await neo.musicBuffer(src)), a = await rhAnalyse(buffer), r = {a, buffer};
@@ -411,7 +411,7 @@ async function rhSelect(i, diff) {
   rh = rh || {raf: 0};
   Object.assign(rh, {g: $('rhCanvas').getContext('2d'), mode: 'ready', stars, speed: stars > 2 ? 3.2 : 2.6, tick: 0, song: i, diff, c, info, notes, src: null, ev: 0, t0: 0, score: 0, combo: 0, maxCombo: 0, counts: {PARFAIT: 0, BIEN: 0, OK: 0, RATÉ: 0}, judge: null, flash: [0, 0, 0, 0], down: [false, false, false, false], sparks: [], done: false});
   games.rhythmLast = {song: i, diff}; rhList();
-  gameLoop(rh, 'neodyme:rhythm', rhUpdate, rhDraw);
+  gameLoop(rh, 'neodex:rhythm', rhUpdate, rhDraw);
 }
 let rhOffMs = 0;
 const rhLatency = () => (rhCtx?.outputLatency || 0) + (rhCtx?.baseLatency || 0) + rhOffMs / 1000;
@@ -596,7 +596,7 @@ document.addEventListener('keyup', e => {
 function rhOpen() {
   const p = games.rhythmPrefs || {}; for (const id of ['rhVol', 'rhOffset']) if (p[id] != null) $(id).value = p[id];
   rhOffMs = +$('rhOffset').value;
-  if (rh) { rhList(); return gameLoop(rh, 'neodyme:rhythm', rhUpdate, rhDraw); }
+  if (rh) { rhList(); return gameLoop(rh, 'neodex:rhythm', rhUpdate, rhDraw); }
   const last = games.rhythmLast || {song: 0, diff: 'normal'}; rhSelect(last.song, last.diff).catch(() => rhSelect(0, 'normal'));  // an imported music may be missing on this PC
 }  // (non indenté : les textes sur plusieurs lignes restent exactement les tiens)
   // ---- fin ----
